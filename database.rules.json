@@ -1,0 +1,129 @@
+{
+  "rules": {
+    "users": {
+      // Allow any authenticated user to create their own user node during signup
+      ".write": "auth != null",
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        // Allow authenticated user to modify their own data. Granular validation below.
+        ".write": "auth != null && auth.uid == $uid",
+
+        // User-specific field validations and write restrictions
+        "email": { ".validate": "newData.isString() && newData.val() == data.val()" }, // Immutable by user
+        "uid": { ".validate": "newData.isString() && newData.val() == data.val()" },   // Immutable by user
+        "referredBy": { ".validate": "newData.isString() && !data.exists()" },          // Set once at creation
+
+        "coins": {
+          // Users can only increase their coins through app actions (increment).
+          // Admin can set any value (increase or decrease).
+          ".validate": "newData.isNumber() && (newData.val() >= data.val() || root.child('admin/adminUids').hasChild(auth.uid))"
+        },
+        // Removed 'adsWatched' as it's replaced by dailyAdStats
+        // "adsWatched": {
+        //   "$adId": {
+        //     ".validate": "newData.isBoolean() && newData.val() == true && (!data.exists() || data.val() == false)"
+        //   }
+        // },
+        "dailyAdStats": {
+          "$date": { // e.g., "2024-07-29"
+            "totalWatches": {
+              // User can only increment totalWatches by 1, up to the daily limit
+              // Admin can set any value
+              ".validate": "newData.isNumber() && ( (newData.val() == data.val() + 1 && newData.val() <= root.child('admin/dailyAdViewLimit').val()) || root.child('admin/adminUids').hasChild(auth.uid) )"
+            }
+          }
+        },
+        "socialTasks": {
+          "whatsappJoined": {
+            ".validate": "newData.isBoolean() && newData.val() == true && (!data.exists() || data.val() == false)"
+          },
+          "youtubeSubscribed": {
+            ".validate": "newData.isBoolean() && newData.val() == true && (!data.exists() || data.val() == false)"
+          }
+        },
+        "videoPromotions": {
+          // Users can only create NEW pending video promotions under their node (push)
+          "$promoId": {
+            ".write": "auth != null && auth.uid == $uid && !data.exists()", // User can only create new entries
+            ".validate": "newData.hasChildren(['userId', 'userEmail', 'videoLink', 'status', 'timestamp', 'coins']) && newData.child('userId').val() == $uid && newData.child('status').val() == 'pending'"
+          }
+        },
+        "referrals": {
+          // An inviter can add a new referred user to their list.
+          "$referredUid": {
+            ".write": "auth != null && auth.uid == $uid && !data.exists()", // Inviter creates the initial entry
+            ".validate": "newData.hasChildren(['email', 'referredAt', 'firstWithdrawalApproved', 'status']) && newData.child('status').val() == 'pending' && (!data.exists() || (data.child('email').val() == newData.child('email').val() && data.child('referredAt').val() == newData.child('referredAt').val()))",
+            "status": {
+              ".write": "auth != null && root.child('admin/adminUids').hasChild(auth.uid)", // Admin only for status updates
+              ".validate": "newData.val() == 'pending' || newData.val() == 'verified'"
+            },
+            "firstWithdrawalApproved": {
+              ".write": "auth != null && root.child('admin/adminUids').hasChild(auth.uid)", // Admin only for approval
+              ".validate": "newData.isBoolean()"
+            }
+          }
+        },
+        "challenges": {
+          // Users can update their challenge progress and mark rewards as collected
+          ".write": "auth != null && auth.uid == $uid"
+        },
+        "totalInvites": { ".validate": "false" }, // Immutable by user, updated by trusted backend (admin/server)
+        "verifiedInvitesCount": { ".validate": "false" }, // Immutable by user, updated by trusted backend (admin/server)
+        "firstWithdrawalCompleted": { ".validate": "false" } // Immutable by user, updated by trusted backend (admin/server)
+      }
+    },
+    "withdrawRequests": {
+      // Admin can read/write all requests. User can read their own.
+      ".read": "auth != null && (root.child('admin/adminUids').hasChild(auth.uid) || (auth.uid == newData.child('userId').val() || data.child('userId').val() == auth.uid))",
+      ".write": "auth != null && root.child('admin/adminUids').hasChild(auth.uid)", // Admin has full control over the queue
+      "$requestId": {
+        // A user can create a new request (push). Admin can update status etc.
+        ".write": "auth != null && ((newData.child('userId').val() == auth.uid && !data.exists()) || root.child('admin/adminUids').hasChild(auth.uid))",
+        ".validate": "newData.hasChildren(['userId', 'userEmail', 'amountCoins', 'amountUSD', 'method', 'accountDetails', 'status', 'timestamp']) && ((newData.child('userId').val() == auth.uid && newData.child('status').val() == 'pending' && !data.exists()) || (root.child('admin/adminUids').hasChild(auth.uid) && (newData.child('status').val() == 'pending' || newData.child('status').val() == 'approved' || newData.child('status').val() == 'rejected')))"
+      }
+    },
+    "videoPromotions": {
+      // Admin can read/write all promotions. User can read their own.
+      ".read": "auth != null && (root.child('admin/adminUids').hasChild(auth.uid) || (auth.uid == newData.child('userId').val() || data.child('userId').val() == auth.uid))",
+      ".write": "auth != null && root.child('admin/adminUids').hasChild(auth.uid)", // Admin has full control over the queue
+      "$promoId": {
+        // A user can create a new promotion (push). Admin can update status etc.
+        ".write": "auth != null && ((newData.child('userId').val() == auth.uid && !data.exists()) || root.child('admin/adminUids').hasChild(auth.uid))",
+        ".validate": "newData.hasChildren(['userId', 'userEmail', 'videoLink', 'status', 'timestamp', 'coins']) && ((newData.child('userId').val() == auth.uid && newData.child('status').val() == 'pending' && !data.exists()) || (root.child('admin/adminUids').hasChild(auth.uid) && (newData.child('status').val() == 'pending' || newData.child('status').val() == 'accepted' || newData.child('status').val() == 'rejected')))"
+      }
+    },
+    "depositRequests": {
+      // Admin can read/write all requests. User can read their own.
+      ".read": "auth != null && (root.child('admin/adminUids').hasChild(auth.uid) || (auth.uid == newData.child('userId').val() || data.child('userId').val() == auth.uid))",
+      ".write": "auth != null && root.child('admin/adminUids').hasChild(auth.uid)", // Admin has full control over the queue
+      "$depositId": {
+        // A user can create a new request (push). Admin can update status etc.
+        ".write": "auth != null && ((newData.child('userId').val() == auth.uid && !data.exists()) || root.child('admin/adminUids').hasChild(auth.uid))",
+        ".validate": "newData.hasChildren(['userId', 'userEmail', 'transactionId', 'amountDeposited', 'coinsToReceive', 'status', 'timestamp']) && ((newData.child('userId').val() == auth.uid && newData.child('status').val() == 'pending' && !data.exists()) || (root.child('admin/adminUids').hasChild(auth.uid) && (newData.child('status').val() == 'pending' || newData.child('status').val() == 'approved' || newData.child('status').val() == 'rejected')))"
+      }
+    },
+    "admin": {
+      ".read": "auth != null && root.child('admin/adminUids').hasChild(auth.uid)",
+      ".write": "auth != null && root.child('admin/adminUids').hasChild(auth.uid)",
+      // Specific validations for admin nodes
+      "adminUids": {
+        // Admin can manage the list of admin UIDs. Ensure it's an object of booleans.
+        ".validate": "newData.isObject()"
+      },
+      "ads": {
+        // Only admin can read/write ad config.
+        ".validate": "newData.isObject()"
+      },
+      "socialTaskLinks": {
+        // Only admin can read/write social task links.
+        ".validate": "newData.isObject()"
+      },
+      "youtubePromotionCoins": { ".validate": "newData.isNumber()" },
+      "referralCommission": { ".validate": "newData.isNumber()" },
+      "coinToUsdRate": { ".validate": "newData.isNumber()" },
+      "dailyAdViewLimit": { ".validate": "newData.isNumber() && newData.val() > 0" } // Admin can set a positive number
+    },
+    ".read": "false", // Deny all other unauthenticated reads
+    ".write": "false" // Deny all other unauthenticated writes
+  }
+}

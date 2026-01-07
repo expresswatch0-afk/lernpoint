@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LearnPoint - Admin Panel</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" href="https://picsum.photos/32/32" type="image/x-icon">
+    <style>
+      /* Define custom primary color for Tailwind */
+      :root {
+        --color-primary: #1AB856;
+        --color-text-dark: #333333;
+        --color-text-medium: #666666;
+      }
+      .bg-primary { background-color: var(--color-primary); }
+      .text-primary { color: var(--color-primary); }
+      .text-dark-gray { color: var(--color-text-dark); }
+      .text-medium-gray { color: var(--color-text-medium); }
+      .border-primary { border-color: var(--color-primary); }
+      .focus\:ring-primary:focus { --tw-ring-color: var(--color-primary); }
+      .hover\:bg-primary-dark:hover { background-color: #159C4B; } /* Slightly darker green for hover */
+
+      /* Custom scrollbar for better aesthetics against white background */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #f1f1f1; /* Light gray for track */
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #cccccc; /* Medium light gray for thumb */
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #aaaaaa; /* Darker light gray on hover */
+      }
+      /* Hide scrollbar for specific elements if needed */
+      .hide-scrollbar::-webkit-scrollbar {
+          display: none;
+      }
+      .hide-scrollbar {
+          -ms-overflow-style: none; /* IE and Edge */
+          scrollbar-width: none; /* Firefox */
+      }
+    </style>
+</head>
+<body class="bg-white text-dark-gray min-h-screen flex flex-col">
+    <div id="root" class="flex-grow flex flex-col"></div>
+    <script type="module" src="/admin.tsx"></script>
+</body>
+</html>
